@@ -84,12 +84,20 @@ def get_start_angle(element):
     elif isinstance(element, LWPolyline):
         p0 = element[0]
         p1 = element[1]
-        arc = arc_from_lwpolyline_points(p0, p1)
         bulge = p0[4]
-        if bulge > 0:
-            return arc.start_angle + math.pi / 2
+        
+        if bulge == 0:
+            # It's a straight line
+            dx = p1[0] - p0[0]
+            dy = p1[1] - p0[1]
+            return math.atan2(dy, dx)
         else:
-            return arc.start_angle - math.pi / 2
+            # It's an arc
+            arc = arc_from_lwpolyline_points(p0, p1)
+            if bulge > 0:
+                return arc.start_angle + math.pi / 2
+            else:
+                return arc.start_angle - math.pi / 2
 
 
 def reverse_element(element):
