@@ -1,14 +1,14 @@
-"""KiCad plugin to generate magnetic propulsion track traces in KiCad"""
+"""KiCad plugin to generate linear stepper track traces in KiCad"""
+
 
 import pcbnew
 import curvycad as cc
 import os
-import wx
 import traceback
+import wx
 
-# Track pattern parameters
-WIDTH = 10.0
-PITCH = 4.0
+WIDTH=10.0
+PITCH=4.0
 WIDTH_MARGIN = 1.2
 LINE_WIDTH = 0.45
 VIA_DRILL = 0.2
@@ -21,93 +21,96 @@ OUTER_MARKING_WIDTH = 2.0
 # Define a single cycle of a periodic pattern which is projected along the
 # path. Points along the track are normalized to the range (0, 1), and they are
 # expanded based on the computed pitch later. 
-def create_track_pattern():
-    TRACK_CENTER = 0.0
-    TRACK_MINOR = WIDTH / 2
-    TRACK_MAJOR = WIDTH / 2 + VIA_PAD / 2 + CU_CLEARANCE + LINE_WIDTH / 2
+# Transverse distances -- positions left and right of the track are absolute and
+# in millimeters. 
+# This definition defines two tracks, one on the left of the centerline and one
+# on the right. Each track has two guard rails on the bottom layer, and two 
+# alternating drive phases.
+TRACK_CENTER = 0.0
+TRACK_MINOR = WIDTH / 2
+TRACK_MAJOR = WIDTH / 2 + VIA_PAD / 2 + CU_CLEARANCE + LINE_WIDTH / 2
+segment = [
     
-    pattern = [
-        # Silkscreen
-        cc.ParallelLine(0.0, 1.0, TRACK_CENTER + TRACK_MAJOR + OUTER_MARKING_WIDTH / 2, OUTER_MARKING_WIDTH, pcbnew.F_SilkS),
-        cc.ParallelLine(0.0, 1.0, -(TRACK_CENTER + TRACK_MAJOR + OUTER_MARKING_WIDTH / 2), OUTER_MARKING_WIDTH, pcbnew.F_SilkS),
+    # Silkscreen
+    cc.ParallelLine(0.0, 1.0, TRACK_CENTER + TRACK_MAJOR + OUTER_MARKING_WIDTH / 2, OUTER_MARKING_WIDTH, pcbnew.F_SilkS),
+    cc.ParallelLine(0.0, 1.0, -(TRACK_CENTER + TRACK_MAJOR + OUTER_MARKING_WIDTH / 2), OUTER_MARKING_WIDTH, pcbnew.F_SilkS),
+    #cc.ParallelLine(0.25, 0.75, 0.0, LANE_SEPARATOR_WIDTH, pcbnew.F_SilkS),
 
-        # Guard rails
-        cc.ParallelLine(0.0, 1.0, -GUIDE_RAIL_SPACE / 2, GUIDE_RAIL_WIDTH, pcbnew.F_Cu),
-        cc.ParallelLine(0.0, 1.0, GUIDE_RAIL_SPACE / 2, GUIDE_RAIL_WIDTH, pcbnew.F_Cu),
-        
-        # Track 1 Phase A
-        cc.TransverseLine(
-            start=-(TRACK_CENTER - TRACK_MINOR),
-            end=-(TRACK_CENTER + TRACK_MAJOR),
-            offset=0,
-            width=LINE_WIDTH,
-            layer=pcbnew.In1_Cu,
-        ),
-        cc.ParallelLine(
-            start=0,
-            end=0.5,
-            offset=-(TRACK_CENTER + TRACK_MAJOR),
-            width=LINE_WIDTH,
-            layer=pcbnew.In1_Cu,
-        ),
-        cc.TransverseLine(
-            start=-(TRACK_CENTER + TRACK_MAJOR),
-            end=-(TRACK_CENTER - TRACK_MINOR),
-            offset=0.5,
-            width=LINE_WIDTH,
-            layer=pcbnew.In1_Cu,
-        ),
-        cc.Via(0.5, -(TRACK_CENTER - TRACK_MINOR), drill=VIA_DRILL, pad=VIA_PAD),
-        cc.ParallelLine(
-            start=0.5, 
-            end=1.0,
-            offset=-(TRACK_CENTER - TRACK_MINOR),
-            width=LINE_WIDTH,
-            layer=pcbnew.In2_Cu,
-        ),
-        cc.Via(1.0, -(TRACK_CENTER - TRACK_MINOR), drill=VIA_DRILL, pad=VIA_PAD),
-        
-        # Track 1 Phase B
-        cc.ParallelLine(
-            start=0.0, 
-            end=0.25,
-            offset=-(TRACK_CENTER - TRACK_MAJOR),
-            width=LINE_WIDTH,
-            layer=pcbnew.In1_Cu,
-        ),
-        cc.TransverseLine(
-            start=-(TRACK_CENTER - TRACK_MAJOR),
-            end=-(TRACK_CENTER + TRACK_MINOR),
-            offset=0.25,
-            width=LINE_WIDTH,
-            layer=pcbnew.In1_Cu,
-        ),
-        cc.Via(0.25, -(TRACK_CENTER + TRACK_MINOR), drill=VIA_DRILL, pad=VIA_PAD),
-        cc.ParallelLine(
-            start=0.25,
-            end=0.75,
-            offset=-(TRACK_CENTER + TRACK_MINOR),
-            width=LINE_WIDTH,
-            layer=pcbnew.In2_Cu,
-        ),
-        cc.Via(0.75, -(TRACK_CENTER + TRACK_MINOR), drill=VIA_DRILL, pad=VIA_PAD),
-        cc.TransverseLine(
-            start=-(TRACK_CENTER + TRACK_MINOR),
-            end=-(TRACK_CENTER - TRACK_MAJOR),
-            offset=0.75,
-            width=LINE_WIDTH,
-            layer=pcbnew.In1_Cu,
-        ),
-        cc.ParallelLine(
-            start=0.75, 
-            end=1.00,
-            offset=-(TRACK_CENTER - TRACK_MAJOR),
-            width=LINE_WIDTH,
-            layer=pcbnew.In1_Cu,
-        ),
-    ]
+    # Guard rails
+    cc.ParallelLine(0.0, 1.0, -GUIDE_RAIL_SPACE / 2, GUIDE_RAIL_WIDTH, pcbnew.F_Cu),
+    cc.ParallelLine(0.0, 1.0, GUIDE_RAIL_SPACE / 2, GUIDE_RAIL_WIDTH, pcbnew.F_Cu),
     
-    return pattern
+    # Track 1 Phase A
+    cc.TransverseLine(
+        start=-(TRACK_CENTER - TRACK_MINOR),
+        end=-(TRACK_CENTER + TRACK_MAJOR),
+        offset=0,
+        width=LINE_WIDTH,
+        layer=pcbnew.In1_Cu,
+    ),
+    cc.ParallelLine(
+        start=0,
+        end=0.5,
+        offset=-(TRACK_CENTER + TRACK_MAJOR),
+        width=LINE_WIDTH,
+        layer=pcbnew.In1_Cu,
+    ),
+    cc.TransverseLine(
+        start=-(TRACK_CENTER + TRACK_MAJOR),
+        end=-(TRACK_CENTER - TRACK_MINOR),
+        offset=0.5,
+        width=LINE_WIDTH,
+        layer=pcbnew.In1_Cu,
+    ),
+    cc.Via(0.5, -(TRACK_CENTER - TRACK_MINOR), drill=VIA_DRILL, pad=VIA_PAD),
+    cc.ParallelLine(
+        start=0.5, 
+        end=1.0,
+        offset=-(TRACK_CENTER - TRACK_MINOR),
+        width=LINE_WIDTH,
+        layer=pcbnew.In2_Cu,
+    ),
+    cc.Via(1.0, -(TRACK_CENTER - TRACK_MINOR), drill=VIA_DRILL, pad=VIA_PAD),
+    
+    # Track 1 Phase B
+    cc.ParallelLine(
+        start=0.0, 
+        end=0.25,
+        offset=-(TRACK_CENTER - TRACK_MAJOR),
+        width=LINE_WIDTH,
+        layer=pcbnew.In1_Cu,
+    ),
+    cc.TransverseLine(
+        start=-(TRACK_CENTER - TRACK_MAJOR),
+        end=-(TRACK_CENTER + TRACK_MINOR),
+        offset=0.25,
+        width=LINE_WIDTH,
+        layer=pcbnew.In1_Cu,
+    ),
+    cc.Via(0.25, -(TRACK_CENTER + TRACK_MINOR), drill=VIA_DRILL, pad=VIA_PAD),
+    cc.ParallelLine(
+        start=0.25,
+        end=0.75,
+        offset=-(TRACK_CENTER + TRACK_MINOR),
+        width=LINE_WIDTH,
+        layer=pcbnew.In2_Cu,
+    ),
+    cc.Via(0.75, -(TRACK_CENTER + TRACK_MINOR), drill=VIA_DRILL, pad=VIA_PAD),
+    cc.TransverseLine(
+        start=-(TRACK_CENTER + TRACK_MINOR),
+        end=-(TRACK_CENTER - TRACK_MAJOR),
+        offset=0.75,
+        width=LINE_WIDTH,
+        layer=pcbnew.In1_Cu,
+    ),
+    cc.ParallelLine(
+        start=0.75, 
+        end=1.00,
+        offset=-(TRACK_CENTER - TRACK_MAJOR),
+        width=LINE_WIDTH,
+        layer=pcbnew.In1_Cu,
+    ),
+]
 
 # Custom version of KicadTrackBuilder with fixes for KiCad 9.0
 class FixedKicadTrackBuilder(cc.KicadTrackBuilder):
@@ -162,6 +165,22 @@ class FixedKicadTrackBuilder(cc.KicadTrackBuilder):
     
     def emit_via(self, p, drill, pad):
         """Fixed version of emit_via for KiCad 9.0 compatibility"""
+        # Try first to create a proper PCB_VIA
+        try:
+            via = pcbnew.PCB_VIA(self.board)
+            position = self.point_to_vector2i(p)
+            via.SetPosition(position)
+            via.SetViaType(pcbnew.VIATYPE_THROUGH)
+            via.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu)
+            via.SetDrill(int(drill * 1e6))
+            via.SetWidth(int(pad * 1e6))  # Set via diameter
+            self.board.Add(via)
+            self.group.AddItem(via)
+            return
+        except Exception as e:
+            print(f"Warning: Could not create via using PCB_VIA at {p}. Error: {e}")
+        
+        # Fall back to footprint approach if PCB_VIA fails
         try:
             module = pcbnew.FOOTPRINT(self.board)
             position = self.point_to_vector2i(p)
@@ -180,30 +199,19 @@ class FixedKicadTrackBuilder(cc.KicadTrackBuilder):
             module.Add(pad_item)
             self.board.Add(module)
             self.group.AddItem(module)
-        except Exception as e:
-            print(f"Warning: Could not create via at {p}. Error: {e}")
-            # Fallback to trying the original method
-            try:
-                via = pcbnew.PCB_VIA(self.board)
-                position = self.point_to_vector2i(p)
-                via.SetPosition(position)
-                via.SetViaType(pcbnew.VIATYPE_THROUGH)
-                via.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu)
-                via.SetDrill(int(drill * 1e6))
-                self.board.Add(via)
-                self.group.AddItem(via)
-            except Exception as e2:
-                print(f"Error creating via fallback: {e2}")
+        except Exception as e2:
+            print(f"Error creating via using footprint fallback: {e2}")
 
-class MagneticTrackLayout(pcbnew.ActionPlugin):
+class TrackLayout(pcbnew.ActionPlugin):
     def defaults(self):
-        self.name = "Insert Magnetic Propulsion Track"
+        self.name = "Insert Gauss Speedway race track"
         self.category = "Modify PCB"
-        self.description = "Insert magnetic propulsion track from DXF file"
+        self.description = "Insert Gauss Speedway race track"
         self.show_toolbar_button = True
 
     def Run(self):
         board = pcbnew.GetBoard()
+        projdir = os.path.dirname(os.path.abspath(board.GetFileName()))
         
         # Create dialog to choose between default path or custom file
         dlg = wx.MessageDialog(None, 
@@ -218,7 +226,6 @@ class MagneticTrackLayout(pcbnew.ActionPlugin):
             
             if use_default:
                 # Use track.dxf from project directory
-                projdir = os.path.dirname(os.path.abspath(board.GetFileName()))
                 dxf_file = os.path.join(projdir, 'track.dxf')
                 if not os.path.exists(dxf_file):
                     wx.MessageBox(f"Default track.dxf not found in project directory: {projdir}", 
@@ -235,28 +242,23 @@ class MagneticTrackLayout(pcbnew.ActionPlugin):
                     dxf_file = fileDialog.GetPath()
             
             try:
-                # Read the DXF file
                 guide = cc.read_dxf(dxf_file)
+                for el in guide:
+                    print(el)
                 
-                # Create the track pattern
-                pattern = create_track_pattern()
-                
-                # Create the track builder and apply the pattern
-                track = FixedKicadTrackBuilder(PITCH, pattern, board)
+                # Use the fixed track builder for KiCad 9.0 compatibility
+                track = FixedKicadTrackBuilder(PITCH, segment, board)
                 track.draw_path(guide)
                 
                 # Refresh the board
                 pcbnew.Refresh()
                 
-                wx.MessageBox(f"Successfully added magnetic track from {dxf_file}", 
-                             "Success", wx.OK | wx.ICON_INFORMATION)
-                
             except Exception as e:
-                error_msg = f"Error: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+                error_msg = f"Error: {str(e)}\n\n{traceback.format_exc()}"
                 wx.MessageBox(error_msg, "Error", wx.OK | wx.ICON_ERROR)
                 
         except Exception as e:
-            wx.MessageBox(f"Dialog error: {str(e)}", "Error", wx.OK | wx.ICON_ERROR)
+            print(f"Dialog error: {str(e)}\n\n{traceback.format_exc()}")
+   
 
-# Register the plugin
-MagneticTrackLayout().register()
+TrackLayout().register()
